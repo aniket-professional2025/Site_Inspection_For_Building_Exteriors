@@ -17,12 +17,20 @@ model = AutoModelForZeroShotObjectDetection.from_pretrained(model_id).to(device)
 print("[DEBUG] The Model is Loaded Successfully")
 
 # Define functions to get the detections
-def get_detections(image_path, detection_threshold: float = 0.5):
+def get_detections(image_path, output_path = None, detection_threshold: float = 0.5):
 
     print("[DEBUG] Inside the Main Function")
 
-    image = Image.open(image_path).convert("RGB")
-    text_labels = [["damp"]]
+    try:
+        image = Image.open(image_path).convert("RGB")
+    except Exception as e:
+        raise FileNotFoundError(f"Image not Found in {image_path}")
+    
+    # Setting the object name to find
+    # text_labels = [["crack"]] # With threshold 0.3
+    text_labels = [["damp"]] # With threshold 0.1
+
+    # Creating the complete Input
     inputs = processor(images = image, text = text_labels, return_tensors = "pt").to(device)
 
     with torch.no_grad():
@@ -59,7 +67,17 @@ def get_detections(image_path, detection_threshold: float = 0.5):
     # Display result inline
     image.show()
 
+    # Save the Image in Mentioned output path
+    if output_path is None:
+        pass
+    else:
+        image.save(output_path)
+
+    # Confirmation of successful run
+    print(f"The detected Image is Saved at {output_path}")
+
 # Inference on the Function
 if __name__ == "__main__":
     image_path = r"C:\Users\Webbies\Jupyter_Notebooks\Berger_Site_Inspection_Exterior\InputImages\DampImage.png"
-    get_detections(image_path = image_path, detection_threshold = 0.1)
+    output_path = r"C:\Users\Webbies\Jupyter_Notebooks\Berger_Site_Inspection_Exterior\OutputImages\Detected_Damp.jpg"
+    get_detections(image_path = image_path, output_path = output_path, detection_threshold = 0.1)
