@@ -57,7 +57,7 @@ def analyze_paint_fading(image_path):
 
     # Clamp score between 0 and 100
     fading_score = max(0, min(100, fading_score))
-
+    
     # --- Step 6: Display Results ---
 
     # Create an overlay for the analyzed area
@@ -65,9 +65,7 @@ def analyze_paint_fading(image_path):
     overlay[texture_mask > 0] = [255, 0, 0] # Highlight analyzed area in blue
 
     images = [
-        (cv2.cvtColor(img, cv2.COLOR_BGR2RGB), "1. Original Image"),
-        (texture_mask, "2. Analyzed Paint Mask"),
-        (cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB), "3. Analyzed Area Overlay")
+        (cv2.cvtColor(img, cv2.COLOR_BGR2RGB), "1. Original Image")
     ]
 
     plt.figure(figsize=(15, 5))
@@ -90,9 +88,17 @@ def analyze_paint_fading(image_path):
     print(f"Estimated Fading Score (0=New, 100=Max Fade): {fading_score:.2f}")
     print(f"Analyzed Area (in pixels): {analyzed_area_pixels}")
 
+    # Determining the Paint Age based on the fading score
+    if fading_score <= 0.25:
+        print(f"The paint with fading score {fading_score} is New")
+    elif fading_score > 0.25 and fading_score <= 0.55:
+        print(f"The paint with fading score {fading_score} is Old")
+    else:
+        print(f"The paint with fading score {fading_score} is Very Old")
+
     return mean_saturation, fading_score
 
 # Execute the analysis
 if __name__ == "__main__":
     image_path = r"C:\Users\Webbies\Jupyter_Notebooks\Berger_Site_Inspection_Exterior\InputImages\GreenWallImage.png"
-    mean_sat, fade_score= analyze_paint_fading(image_path) 
+    mean_sat, fade_score = analyze_paint_fading(image_path)
