@@ -10,6 +10,9 @@ def preprocess_image(image_path):
         image = cv2.imread(image_path)
     except Exception as e:
         raise FileNotFoundError(f"Image Not Found In {image_path}")
+    
+    # Resize the Image
+    image = cv2.resize(image, (400,400))
 
     # Convert to Gray scale image
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -20,15 +23,30 @@ def preprocess_image(image_path):
     return image, gray, blurred
 
 # Detecting Flaking and Peeling as a criteria to judge adhesion
-def segment_defects(blurred_image, min_defect_area: int):
+def segment_defects(image_bgr, min_defect_area: int):
 
-    # Apply Adaptive Thresholding
-    thresh = cv2.adaptiveThreshold(blurred_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 10)
+    # Apply HSV color model
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
 
-    # Performing Morphological Operations: Opening and Closing
-    kernel = np.ones((3,3), np.uint8)
-    mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations = 1)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations = 1)
+    # Saturation/Value should be high.
+    lower_blue = np.array([90, 50, 50])
+    upper_blue = np.array([130, 255, 255])
+
+    # Create a mask for the intact blue paint
+    blue_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    # The mask will have white where paint is missing (defects) and black where paint is present (blue_mask).
+    initial_defect_mask = cv2.bitwise_not(blue_mask)
+
+    # Visualize the Intial Defect Mask
+    cv2.imshow("Initial Defect Mask", initial_defect_mask)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    # Refine Performing Morphological Operations: Opening and Closing
+    kernel = np.ones((5,5), np.uint8)
+    mask = cv2.morphologyEx(initial_defect_mask, cv2.MORPH_CLOSE, kernel, iterations = 1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations = 1)
 
     # Find Contours (Potential Defect Area)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -41,6 +59,11 @@ def segment_defects(blurred_image, min_defect_area: int):
         area = cv2.contourArea(contour)
         if area > min_defect_area:
             cv2.drawContours(defect_mask, [contour], -1, 255, -1)
+
+    # Visualize the Defected Mask
+    cv2.imshow("Defect Mask", defect_mask)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
     return defect_mask
 
@@ -56,45 +79,51 @@ def calculate_adhesion_score(image_bgr, defect_mask):
     # Calculate the percentage of the area that is defective
     defect_percentage = (defect_area / total_area) * 100
 
-    # Map the defect percentage to an estimated adhesion score (0 to 5)
-    if defect_percentage <= 2: 
-        score = 5
-    elif defect_percentage <= 5:
-        score = 4
-    elif defect_percentage <= 15:
-        score = 3
-    elif defect_percentage <= 35:
-        score = 2
-    elif defect_percentage <= 65:
-        score = 1
-    else:
-        score = 0
+    # Calculate the Adhesion Percentage Score
+    adhesion_percentage_score = 100.0 - defect_percentage
 
-    return defect_percentage, score
+    return np.round(total_area, 2), np.round(defect_area,2),  np.round(defect_percentage,2), np.round(adhesion_percentage_score,2)
 
 # The Complete Main Function
-def estimate_adhesion_score_from_image(image_path, min_area: int = 50):
+def estimate_adhesion_score_from_image(image_path, output_path: str, min_area: int = 50):
     
     try:
         # Preprocess
-        img_bgr, _ , img_blurred = preprocess_image(image_path)
+        image_bgr, image_gray , image_blurred = preprocess_image(image_path)
 
-        # 2. Segment Defects
-        defect_mask = segment_defects(img_blurred, min_defect_area = min_area)
-
-        # 3. Quantification and Scoring
-        percentage, score = calculate_adhesion_score(img_bgr, defect_mask)
-
-        # Visualize the detected defects
-        cv2.imshow('Defect Mask', defect_mask)
+        # Visualize the Original Image
+        cv2.imshow("Original Image", image_bgr)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+        # Visualize the Gray Scale Image
+        cv2.imshow("Gray Scale Image", image_gray)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        # Visualize the Blurred Image
+        cv2.imshow("Blurred Image", image_blurred)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        # 2. Segment Defects
+        defect_mask = segment_defects(image_bgr, min_defect_area = min_area)
+
+        # Store the Detected_mask
+        cv2.imwrite(output_path, defect_mask)
+
+        # 3. Quantification and Scoring
+        total_area, defetcted_area, percentage, score = calculate_adhesion_score(image_bgr, defect_mask)
+
+        
+        print(f"Total Image Area is {total_area}")
+        print(f"Estimated Detected Region Area is {defetcted_area}")
+
         print(f"--- Estimated Adhesion Result ---")
         print(f"Defective Area: {percentage:.2f}%")
-        print(f"Estimated Adhesion Score (0-5): {score}")
+        print(f"Estimated Adhesion Score (0-100): {score}")
         print("---------------------------------")
-        return score, percentage
+        return total_area, defetcted_area, percentage, score
 
     except FileNotFoundError as e:
         print(e)
@@ -105,7 +134,10 @@ def estimate_adhesion_score_from_image(image_path, min_area: int = 50):
 
 # Example Usage:
 if __name__ == "__main__":
-    image_path = r""
-    estimated_score, area_percent = estimate_adhesion_score_from_image(image_path = image_path, min_area = 100)
-    print("The Estimated Score is:", estimated_score)
+    image_path = r"C:\Users\Webbies\Jupyter_Notebooks\Berger_Site_Inspection_Exterior\InputImages\Adhesion_Test_Image.png"
+    output_path = r"C:\Users\Webbies\Jupyter_Notebooks\Berger_Site_Inspection_Exterior\OutputImages\Adhesion_Test_Image_Defected_Mask.png"
+    defected_area, area_percent, estimated_score = estimate_adhesion_score_from_image(image_path = image_path, output_path = output_path, min_area = 100)
+    print("Defected Area is:", defected_area)
     print("The Area Percentage is:", area_percent)
+    print("The Estimated Adhesion Score is:", estimated_score)
+    
