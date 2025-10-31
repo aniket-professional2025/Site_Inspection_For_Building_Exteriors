@@ -64,24 +64,29 @@ def analyze_paint_fading(image_path):
     overlay = img.copy()
     overlay[texture_mask > 0] = [255, 0, 0] # Highlight analyzed area in blue
 
-    images = [
-        (cv2.cvtColor(img, cv2.COLOR_BGR2RGB), "1. Original Image")
-    ]
+    # Shwoing the image
+    cv2.imshow("Original Image", img) # cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    # images = [
+    #     (cv2.cvtColor(img, cv2.COLOR_BGR2RGB), "1. Original Image")
+    # ]
 
-    plt.figure(figsize=(15, 5))
-    for i, (im, title) in enumerate(images):
-        plt.subplot(1, len(images), i + 1)
-        plt.title(title, fontsize=10)
+    # plt.figure(figsize=(15, 5))
+    # for i, (im, title) in enumerate(images):
+    #     plt.subplot(1, len(images), i + 1)
+    #     plt.title(title, fontsize=10)
 
-        if len(im.shape) == 2:
-            plt.imshow(im, cmap="gray")
-        else:
-            plt.imshow(im)
+    #     if len(im.shape) == 2:
+    #         plt.imshow(im, cmap="gray")
+    #     else:
+    #         plt.imshow(im)
 
-        plt.axis("off")
+    #     plt.axis("off")
 
-    plt.tight_layout()
-    plt.show()
+    # plt.tight_layout()
+    # plt.show()
 
     print(f"Mean Paint Saturation (S-Channel): {mean_saturation:.2f} (Max 255)")
     print(f"Assumed Max Saturation for Score: {max_saturation}")
