@@ -7,7 +7,7 @@ from objects_area import detect_objects
 from defect_detection import get_defects
 
 # Define Function to Calculate Building Paintable Area
-def calculate_paintable_area(image1_path, image2_path, image3_path, image4_path, 
+def calculate_paintable_area(image1_path: None, image2_path: None, image3_path: None, image4_path: None, 
                              building_threshold: float = 0.4, 
                              object_threshold: float = 0.4,
                              real_building_height: float = 40.0,
@@ -50,19 +50,45 @@ def calculate_paintable_area(image1_path, image2_path, image3_path, image4_path,
     return final_h, final_w, window_count, door_count, pipe_count, final_a, final_wdp_area, final_paintable_area
 
 # Function to detect the defects on the building wall images
-def find_defects(image1_path, image2_path, image3_path, image4_path, defect_threshold: float = 0.3):
+def find_defects(image1_path: None, image2_path: None, image3_path: None, image4_path: None, defect_threshold: float = 0.35):
+    
+    # Store all image paths in a list for iteration
+    image_paths = [image1_path, image2_path, image3_path, image4_path]
+    all_labels = []
 
-    # Getting the defection labels
-    labels_1 = get_defects(image1_path)
-    labels_2 = get_defects(image2_path)
-    labels_3 = get_defects(image3_path)
-    labels_4 = get_defects(image4_path)
+    for idx, path in enumerate(image_paths, 1):
+        if path:  # Ensure path exists
+            print(f"\n[INFO] Processing Image {idx}: {path}")
+            labels = get_defects(image_path=path, detection_threshold=defect_threshold) or []
+            print(f"[INFO] Detected in Image {idx}: {labels}")
+            all_labels.extend(labels)
+        else:
+            print(f"[WARNING] Image {idx} path not provided. Skipping.")
 
-    # Making the final defects label
-    final_labels = labels_1 + labels_2 + labels_3 + labels_4
+    # Filter out empty or invalid labels
+    all_labels = [lbl.strip().lower() for lbl in all_labels if isinstance(lbl, str) and lbl.strip()]
 
-    # Return the final labels
+    # Deduplicate labels while preserving order
+    final_labels = list(dict.fromkeys(all_labels))
+
+    print(f"\n[RESULT] Final Combined Defect Labels: {final_labels}")
     return final_labels
+
+# def find_defects(image1_path, image2_path, image3_path, image4_path, defect_threshold: float = 0.3):
+
+#     # Getting the defection labels
+#     labels_1 = get_defects(image1_path, detection_threshold = defect_threshold) or []
+#     labels_2 = get_defects(image2_path, detection_threshold = defect_threshold) or []
+#     labels_3 = get_defects(image3_path, detection_threshold = defect_threshold) or []
+#     labels_4 = get_defects(image4_path, detection_threshold = defect_threshold) or []
+
+#     # Making the final defects label
+#     final_labels = labels_1 + labels_2 + labels_3 + labels_4
+
+#     # Return the final labels
+#     final_labels = [lbl for lbl in final_labels if isinstance(lbl, str) and lbl.strip()]
+
+#     return final_labels
 
 # # Inference on the above function
 # if __name__ == "__main__":

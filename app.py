@@ -2,7 +2,7 @@
 import streamlit as st
 import tempfile
 import os
-from main import calculate_paintable_area, find_defects  # ✅ Import defect detection too
+from main import calculate_paintable_area, find_defects
 
 # Streamlit Page Config
 st.set_page_config(
@@ -73,7 +73,7 @@ if uploaded_files:
 # --- Calculate Button ---
 if st.button("🧮 Calculate Paintable Area", use_container_width=True):
     if len(uploaded_files) < 2:
-        st.error("⚠️ Please upload at least two images to proceed.")
+        st.error("⚠️ Please upload at least 2 images to proceed.")
     elif len(uploaded_files) > 5:
         st.error("⚠️ Please upload a maximum of five images.")
     else:
@@ -88,36 +88,33 @@ if st.button("🧮 Calculate Paintable Area", use_container_width=True):
                 f.write(file.getbuffer())
             temp_paths.append(temp_path)
 
-        # Run the main function and capture logs
-        with st.spinner("Processing images..."):
-            try:
-                # Only pass the first 4 images if 5 are uploaded
-                args = dict(
-                    image1_path=temp_paths[0],
-                    image2_path=temp_paths[1],
-                    image3_path=temp_paths[2] if len(temp_paths) > 2 else temp_paths[1],
-                    image4_path=temp_paths[3] if len(temp_paths) > 3 else temp_paths[2],
-                    building_threshold=building_threshold,
-                    object_threshold=object_threshold,
-                    real_building_height=real_building_height,
-                    real_window_height=real_window_height,
-                    real_door_height=real_door_height,
-                    real_pipe_height=real_pipe_height
+        # Create placeholders for incremental UI updates
+        calc_placeholder = st.empty()
+        defect_placeholder = st.empty()
+
+        
+        try:
+            # Run the main function and capture logs
+            with calc_placeholder.container():
+                with st.spinner("🧮 Calculating paintable area..."):
+                    # Only pass the first 4 images if 5 are uploaded
+                    args = dict(
+                        image1_path=temp_paths[0],
+                        image2_path=temp_paths[1],
+                        image3_path=temp_paths[2] if len(temp_paths) > 2 else temp_paths[1],
+                        image4_path=temp_paths[3] if len(temp_paths) > 3 else temp_paths[2],
+                        building_threshold=building_threshold,
+                        object_threshold=object_threshold,
+                        real_building_height=real_building_height,
+                        real_window_height=real_window_height,
+                        real_door_height=real_door_height,
+                        real_pipe_height=real_pipe_height
                 )
 
-                # ✅ Unpack full tuple from calculate_paintable_area
-                final_h, final_w, wc, dc, pc, total_building_area, total_wdp_area, paintable_area = calculate_paintable_area(**args)
+                    # ✅ Unpack full tuple from calculate_paintable_area
+                    final_h, final_w, wc, dc, pc, total_building_area, total_wdp_area, paintable_area = calculate_paintable_area(**args)
 
-                # ✅ Run defect detection
-                defect_labels = find_defects(
-                    temp_paths[0],
-                    temp_paths[1],
-                    temp_paths[2] if len(temp_paths) > 2 else temp_paths[1],
-                    temp_paths[3] if len(temp_paths) > 3 else temp_paths[2],
-                    defect_threshold=defect_detection_threshold
-                )
-
-                st.success("✅ Calculation and defect detection completed successfully!")
+                st.success("✅ Paintable area calculation completed!")
 
                 # --- Display Results ---
                 st.markdown("### 📊 Calculation Results")
@@ -136,12 +133,25 @@ if st.button("🧮 Calculate Paintable Area", use_container_width=True):
                 col8.metric("🚪🪟 Total WDP Area", f"{total_wdp_area:.2f} sq.ft")
                 col9.metric("🎨 Paintable Area", f"{paintable_area:.2f} sq.ft")
 
-                st.markdown("---")
+            # ✅ Step - 2
+            with defect_placeholder.container():
+                with st.spinner("🧩 Finding wall defects..."):
+                    defect_labels = find_defects(
+                        temp_paths[0],
+                        temp_paths[1],
+                        temp_paths[2] if len(temp_paths) > 2 else temp_paths[1],
+                        temp_paths[3] if len(temp_paths) > 3 else temp_paths[2],
+                        defect_threshold=defect_detection_threshold
+                    )
 
+                st.success("✅ Defect detection completed successfully!")
+                
                 # ✅ Display Defect Labels
                 st.markdown("### 🧩 Detected Defects on Building Walls")
                 if defect_labels:
-                    unique_labels = sorted(set([lbl for lbl in defect_labels if isinstance(lbl, str) and lbl.strip() and lbl.lower() != "wall"]))
+                    unique_labels = sorted(set(
+                        [lbl for lbl in defect_labels if isinstance(lbl, str) and lbl.strip() and lbl.lower() != "wall"]
+                    ))
                     if unique_labels:
                         st.write(", ".join(unique_labels))
                     else:
@@ -149,14 +159,13 @@ if st.button("🧮 Calculate Paintable Area", use_container_width=True):
                 else:
                     st.info("No defects found in the uploaded images.")
 
-            except Exception as e:
-                st.error(f"An error occurred during processing: {e}")
+        except Exception as e:
+            st.error(f"An error occurred during processing: {e}")
 
-        # Clean up temp files
-        for p in temp_paths:
-            try:
-                os.remove(p)
-            except:
-                pass
-else:
-    st.info("👆 Upload images and press the button to calculate paintable area.")
+        finally:
+            # Clean up temp files
+            for p in temp_paths:
+                try:
+                    os.remove(p)
+                except:
+                    pass
